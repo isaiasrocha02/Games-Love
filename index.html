@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Love Games v6.3 - Ritmo Suave</title>
     <style>
-        :root { --primary: #ff004c; --bg: #0a0a0a; --card: #1a1a1a; --text: #ffffff; }
+        :root { --primary: #ff004c; --bg: #0a0a0a; --card: #1a1a1a; --text: #ffffff; --mario-blue: #2d98da; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden;}
         
         #hud { display: flex; width: 100%; background: #000; border-bottom: 2px solid var(--primary); padding: 10px 0; justify-content: space-around; position: sticky; top: 0; z-index: 100; }
@@ -38,6 +38,10 @@
 </head>
 <body>
 
+    <audio id="bgMusic" loop>
+        <source src="https://files.freemusicarchive.org/storage-freemusicarchive-org/music/no_curator/Ketsa/Night_Walk/Ketsa_-_04_-_Day_Trip.mp3" type="audio/mpeg">
+    </audio>
+
     <div id="hud" style="display: none;">
         <div class="p-stat"><span class="p-name" id="h-n1">P1</span><span class="p-clothes"><span id="h-c1">?</span> 👕</span></div>
         <div style="color: var(--primary); font-size: 1.5rem; align-self: center;">❤</div>
@@ -54,7 +58,7 @@
             <input type="text" id="name2" placeholder="Nome Ela" value="Ana">
             <select id="gen2"><option value="F" selected>Feminino</option><option value="M">Masculino</option></select>
             <input type="number" id="cloth2" value="4">
-            <button onclick="initGame()">COMEÇAR</button>
+            <button onclick="initGame()">COMEÇAR JOGO</button>
         </div>
     </div>
 
@@ -63,7 +67,7 @@
         <div class="container">
             <button onclick="showGame('dice')">🎲 DADOS (Ritmo Suave)</button>
             <button onclick="showGame('wheel')">🎡 RODA DA PAIXÃO</button>
-            <button onclick="showGame('board')" style="background: #333;">♟ TABULEIRO COLORIDO</button>
+            <button onclick="showGame('board')" style="background: var(--mario-blue);">♟ TABULEIRO COLORIDO</button>
         </div>
     </div>
 
@@ -107,15 +111,43 @@
     </div>
 
     <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playCoin() {
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(987.77, audioCtx.currentTime); 
+            osc.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.1); 
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function playJumpTick() {
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playPowerUp() {
+            const notes = [523.25, 659.25, 783.99, 1046.50];
+            notes.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime + (i * 0.1));
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime + (i * 0.1));
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(audioCtx.currentTime + (i * 0.1)); osc.stop(audioCtx.currentTime + (i * 0.1) + 0.2);
+            });
+        }
+
         let state = { turn: 1, isBusy: false, p1: {}, p2: {} };
         const wheelOptions = ["BEIJO", "MASSAGEM", "TIRAR ROUPA", "LAMBER", "MORDER", "ORAL", "CHUPÃO", "CARINHO"];
         const boardTiles = ["INÍCIO", "BEIJO", "TIRA 1", "MORDIDA", "MASSAGEM", "CARINHO", "ORAL", "TIRA 1", "LAMBIDA", "SUSSURRO", "SORTE", "TIRA 1", "69", "CHUPÃO", "FIM", "VOLTA 2"];
         const tileColors = ["#444", "#ff4081", "#d50000", "#9c27b0", "#3f51b5", "#00bcd4", "#4caf50", "#d50000", "#ff9800", "#795548", "#ffeb3b", "#d50000", "#e91e63", "#673ab7", "#222", "#555"];
-        
-        const targets = {
-            "Geral": ["no pescoço", "na orelha", "nos mamilos", "na coxa", "na barriga", "na nuca", "nos pés", "nos ombros"],
-            "Picante": ["nas partes íntimas", "na bunda", "com gelo", "bem devagar", "com vontade"]
-        };
+        const targets = { "Geral": ["no pescoço", "na orelha", "nos mamilos", "na coxa", "na barriga", "na nuca", "nos pés", "nos ombros"], "Picante": ["nas partes íntimas", "na bunda", "com gelo", "bem devagar", "com vontade"] };
 
         function initGame() {
             state.p1 = { name: document.getElementById('name1').value, gen: document.getElementById('gen1').value, clothes: parseInt(document.getElementById('cloth1').value) };
@@ -123,7 +155,9 @@
             document.getElementById('setup').style.display = 'none';
             document.getElementById('hud').style.display = 'flex';
             document.getElementById('menu').classList.add('active');
-            updateHUD();
+            const music = document.getElementById('bgMusic');
+            music.volume = 0.2; music.play();
+            playCoin(); updateHUD();
         }
 
         function updateHUD() {
@@ -138,6 +172,7 @@
         }
 
         function showGame(id) {
+            playJumpTick();
             document.querySelectorAll('.game-screen').forEach(s => s.classList.remove('active'));
             document.getElementById('game-'+id).classList.add('active');
             if(id === 'dice') drawDiceUI("?", "?");
@@ -146,19 +181,9 @@
         }
 
         function goMenu() {
+            playCoin();
             document.querySelectorAll('.game-screen').forEach(s => s.classList.remove('active'));
             document.getElementById('menu').classList.add('active');
-        }
-
-        // --- DADOS COM CHANCE REDUZIDA DE ROUPA ---
-        function drawDiceUI(t1, t2) {
-            const ctx = document.getElementById('canvasDice').getContext('2d');
-            ctx.clearRect(0,0,380,200);
-            ctx.fillStyle = "#d50000"; ctx.beginPath(); ctx.roundRect(40, 30, 140, 140, 20); ctx.fill();
-            ctx.fillStyle = "#222"; ctx.beginPath(); ctx.roundRect(200, 30, 140, 140, 20); ctx.fill(); 
-            ctx.strokeStyle = "#ff004c"; ctx.lineWidth = 2; ctx.stroke();
-            ctx.fillStyle = "#fff"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
-            ctx.fillText(t1, 110, 105); ctx.fillText(t2, 270, 105);
         }
 
         function playDice() {
@@ -166,39 +191,25 @@
             const acts = ["BEIJAR", "LAMBER", "MASSAGEAR", "MORDIDINHA", "CHUPAR", "SUSSURRAR", "CARINHO"];
             let i = 0;
             const anim = setInterval(() => {
-                drawDiceUI("???", "???"); i++;
+                drawDiceUI("???", "???"); i++; playJumpTick();
                 if(i > 10) {
-                    clearInterval(anim);
+                    clearInterval(anim); playPowerUp();
                     const resAct = acts[Math.floor(Math.random()*acts.length)];
                     drawDiceUI(resAct, "???");
                     document.getElementById('dice-main').innerText = resAct;
-                    
                     setTimeout(() => {
-                        // CHANCE REDUZIDA: 25% de chance de tirar roupa
-                        let resComp;
-                        const sorteioRoupa = Math.random() < 0.25; 
-                        
-                        if(sorteioRoupa) {
-                            resComp = "REMOVER 1 PEÇA";
-                        } else {
-                            resComp = targets["Geral"][Math.floor(Math.random()*targets["Geral"].length)];
-                        }
-                        
-                        drawDiceUI(resAct, resComp);
-                        document.getElementById('dice-comp').innerText = resComp;
-                        checkClothes(resComp); 
-                        finishTurn();
+                        let resComp = Math.random() < 0.25 ? "REMOVER 1 PEÇA" : targets["Geral"][Math.floor(Math.random()*targets["Geral"].length)];
+                        drawDiceUI(resAct, resComp); document.getElementById('dice-comp').innerText = resComp;
+                        checkClothes(resComp); finishTurn();
                     }, 800);
                 }
             }, 80);
         }
 
-        // --- RODA ---
         let currentAngle = 0;
         function drawWheel(angle) {
             const ctx = document.getElementById('canvasWheel').getContext('2d');
-            const cx = 180, cy = 180, rad = 170;
-            ctx.clearRect(0,0,360,360);
+            const cx = 180, cy = 180, rad = 170; ctx.clearRect(0,0,360,360);
             for(let i=0; i<8; i++) {
                 ctx.beginPath(); ctx.moveTo(cx, cy);
                 ctx.arc(cx, cy, rad, angle + i*Math.PI/4, angle + (i+1)*Math.PI/4);
@@ -214,16 +225,16 @@
         function playWheel() {
             if(state.isBusy) return; state.isBusy = true;
             document.getElementById('wheel-comp').innerText = "";
-            let speed = Math.random() * 0.4 + 0.4;
+            let speed = Math.random() * 0.4 + 0.4; let lastTick = 0;
             const timer = setInterval(() => {
                 currentAngle += speed; speed *= 0.985;
+                if(Math.floor(currentAngle/(Math.PI/4)) !== lastTick) { playJumpTick(); lastTick = Math.floor(currentAngle/(Math.PI/4)); }
                 drawWheel(currentAngle);
                 if(speed < 0.005) {
-                    clearInterval(timer);
+                    clearInterval(timer); playPowerUp();
                     const realAngle = (currentAngle + Math.PI/2) % (Math.PI*2);
                     const idx = 7 - Math.floor((realAngle < 0 ? realAngle + Math.PI*2 : realAngle) / (Math.PI/4)) % 8;
-                    const result = wheelOptions[idx];
-                    document.getElementById('wheel-main').innerText = result;
+                    const result = wheelOptions[idx]; document.getElementById('wheel-main').innerText = result;
                     setTimeout(() => {
                         const cat = (result === "ORAL" || result === "CHUPÃO") ? "Picante" : "Geral";
                         let comp = (result === "TIRAR ROUPA") ? "DE FORMA SEXY" : targets[cat][Math.floor(Math.random() * targets[cat].length)];
@@ -234,38 +245,29 @@
             }, 25);
         }
 
-        // --- TABULEIRO ---
         let p1Pos = 0, p2Pos = 0;
         function drawBoard() {
             const ctx = document.getElementById('canvasBoard').getContext('2d');
-            const size = 80;
-            ctx.clearRect(0,0,400,400);
+            const size = 80; ctx.clearRect(0,0,400,400);
             for(let i=0; i<16; i++) {
-                const p = getBPos(i);
-                ctx.fillStyle = tileColors[i];
-                ctx.fillRect(p.x, p.y, size, size);
+                const p = getBPos(i); ctx.fillStyle = tileColors[i]; ctx.fillRect(p.x, p.y, size, size);
                 ctx.strokeStyle = "#fff"; ctx.strokeRect(p.x, p.y, size, size);
                 ctx.fillStyle = "#fff"; ctx.font = "bold 9px Arial"; ctx.textAlign = "center";
                 ctx.fillText(boardTiles[i], p.x + size/2, p.y + size/2 + 4);
             }
-            const pos1 = getBPos(p1Pos); ctx.fillStyle = "cyan"; ctx.beginPath(); ctx.arc(pos1.x+20, pos1.y+20, 10, 0, 7); ctx.fill(); ctx.stroke();
-            const pos2 = getBPos(p2Pos); ctx.fillStyle = "magenta"; ctx.beginPath(); ctx.arc(pos2.x+60, pos2.y+60, 10, 0, 7); ctx.fill(); ctx.stroke();
+            const pos1 = getBPos(p1Pos); ctx.fillStyle = "cyan"; ctx.beginPath(); ctx.arc(pos1.x+20, pos1.y+20, 10, 0, 7); ctx.fill();
+            const pos2 = getBPos(p2Pos); ctx.fillStyle = "magenta"; ctx.beginPath(); ctx.arc(pos2.x+60, pos2.y+60, 10, 0, 7); ctx.fill();
         }
-        function getBPos(i) {
-            i = i % 16;
-            if(i<5) return {x: i*80, y:0};
-            if(i<8) return {x: 320, y: (i-4)*80};
-            if(i<13) return {x: 320-(i-8)*80, y: 320};
-            return {x: 0, y: 320-(i-12)*80};
-        }
+        function getBPos(i) { i = i % 16; if(i<5) return {x: i*80, y:0}; if(i<8) return {x: 320, y: (i-4)*80}; if(i<13) return {x: 320-(i-8)*80, y: 320}; return {x: 0, y: 320-(i-12)*80}; }
+        
         function playBoard() {
-            if(state.isBusy) return; state.isBusy = true;
+            if(state.isBusy) return; state.isBusy = true; playJumpTick();
             const move = Math.floor(Math.random() * 3) + 1;
             if(state.turn === 1) p1Pos = (p1Pos + move) % 16; else p2Pos = (p2Pos + move) % 16;
             drawBoard();
-            const action = boardTiles[state.turn === 1 ? p1Pos : p2Pos];
-            document.getElementById('board-main').innerText = action;
+            const action = boardTiles[state.turn === 1 ? p1Pos : p2Pos]; document.getElementById('board-main').innerText = action;
             setTimeout(() => {
+                playPowerUp();
                 const cat = (action === "ORAL" || action === "69") ? "Picante" : "Geral";
                 const comp = action.includes("TIRA") ? "UMA PEÇA" : targets[cat][Math.floor(Math.random() * targets[cat].length)];
                 document.getElementById('board-comp').innerText = comp;
@@ -277,22 +279,25 @@
             const p = state.turn === 1 ? state.p1 : state.p2;
             const t = txt.toUpperCase();
             if(t.includes("TIRA") || t.includes("ROUPA") || t.includes("REMOVER")) {
-                p.clothes--;
+                p.clothes--; playCoin();
                 if(p.clothes <= 0) {
-                    p.clothes = 0;
-                    document.getElementById('modal-text').innerText = `${p.name} ficou sem roupas!`;
+                    p.clothes = 0; document.getElementById('modal-text').innerText = `${p.name} ficou sem roupas!`;
                     document.getElementById('modal').style.display = 'flex';
                 }
             }
             updateHUD();
         }
 
-        function finishTurn() {
-            state.isBusy = false;
-            state.turn = state.turn === 1 ? 2 : 1;
-            setTimeout(updateHUD, 100);
-        }
+        function finishTurn() { state.isBusy = false; state.turn = state.turn === 1 ? 2 : 1; setTimeout(updateHUD, 100); }
         function closeModal() { document.getElementById('modal').style.display = 'none'; }
+        function drawDiceUI(t1, t2) {
+            const ctx = document.getElementById('canvasDice').getContext('2d'); ctx.clearRect(0,0,380,200);
+            ctx.fillStyle = "#d50000"; ctx.beginPath(); ctx.roundRect(40, 30, 140, 140, 20); ctx.fill();
+            ctx.fillStyle = "#222"; ctx.beginPath(); ctx.roundRect(200, 30, 140, 140, 20); ctx.fill(); 
+            ctx.strokeStyle = "#ff004c"; ctx.lineWidth = 2; ctx.stroke();
+            ctx.fillStyle = "#fff"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
+            ctx.fillText(t1, 110, 105); ctx.fillText(t2, 270, 105);
+        }
     </script>
 </body>
 </html>
